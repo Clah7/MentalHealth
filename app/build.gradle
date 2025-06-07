@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.example.mentalhealth'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.example.mentalhealth"
@@ -47,7 +47,7 @@ dependencies {
     implementation libs.androidx.ui.tooling.preview
     implementation libs.androidx.material3
 
-    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"
+    implementation libs.androidx.connect.client
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
