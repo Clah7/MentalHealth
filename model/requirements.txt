@@ -1,6 +1,10 @@
 fastapi
 uvicorn[standard]
 pandas
-numpy
+numpy==1.23.5
 joblib
 scikit-fuzzy
+scipy
+packaging
+networkx
+scikit-learn==1.2.2
