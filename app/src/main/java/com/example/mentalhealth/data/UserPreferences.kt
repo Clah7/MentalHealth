@@ -13,6 +13,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class UserPreferences(private val context: Context) {
     
     companion object {
+        private val NAME = stringPreferencesKey("name")
+        private val EMAIL = stringPreferencesKey("email")
         private val GENDER = stringPreferencesKey("gender")
         private val AGE = stringPreferencesKey("age")
         private val BMI_CATEGORY = stringPreferencesKey("bmi_category")
@@ -21,10 +23,14 @@ class UserPreferences(private val context: Context) {
         private val SLEEP_QUALITY = stringPreferencesKey("sleep_quality")
         private val HEART_RATE = stringPreferencesKey("heart_rate")
         private val DAILY_STEPS = stringPreferencesKey("daily_steps")
+        private val HEIGHT = stringPreferencesKey("height")
+        private val WEIGHT = stringPreferencesKey("weight")
     }
 
     val userData: Flow<UserData> = context.dataStore.data.map { preferences ->
         UserData(
+            name = preferences[NAME] ?: "",
+            email = preferences[EMAIL] ?: "",
             gender = preferences[GENDER] ?: "",
             age = preferences[AGE] ?: "",
             bmiCategory = preferences[BMI_CATEGORY] ?: "",
@@ -32,12 +38,16 @@ class UserPreferences(private val context: Context) {
             sleepDuration = preferences[SLEEP_DURATION] ?: "",
             sleepQuality = preferences[SLEEP_QUALITY] ?: "",
             heartRate = preferences[HEART_RATE] ?: "",
-            dailySteps = preferences[DAILY_STEPS] ?: ""
+            dailySteps = preferences[DAILY_STEPS] ?: "",
+            height = preferences[HEIGHT] ?: "",
+            weight = preferences[WEIGHT] ?: ""
         )
     }
 
     suspend fun saveUserData(userData: UserData) {
         context.dataStore.edit { preferences ->
+            preferences[NAME] = userData.name
+            preferences[EMAIL] = userData.email
             preferences[GENDER] = userData.gender
             preferences[AGE] = userData.age
             preferences[BMI_CATEGORY] = userData.bmiCategory
@@ -46,6 +56,8 @@ class UserPreferences(private val context: Context) {
             preferences[SLEEP_QUALITY] = userData.sleepQuality
             preferences[HEART_RATE] = userData.heartRate
             preferences[DAILY_STEPS] = userData.dailySteps
+            preferences[HEIGHT] = userData.height
+            preferences[WEIGHT] = userData.weight
         }
     }
 } 

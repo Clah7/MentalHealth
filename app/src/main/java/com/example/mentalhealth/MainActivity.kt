@@ -46,14 +46,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                MainScreen(healthConnectClient, requiredPermissions, this, userPreferences)
+                MainScreenContainer(healthConnectClient, requiredPermissions, this, userPreferences)
             }
         }
     }
 }
 
 @Composable
-fun MainScreen(
+fun MainScreenContainer(
     healthConnectClient: HealthConnectClient,
     requiredPermissions: Set<String>,
     context: ComponentActivity,
@@ -78,32 +78,50 @@ fun MainScreen(
             scope.launch {
                 try {
                     isFetchingState.value = true
-                    stepsState.value = readStepsToday(context, healthConnectClient).toInt()
-                    sleepState.value = readSleepToday(context, healthConnectClient)
-                    heartRateState.value = readHeartRateToday(context, healthConnectClient)
+                    Log.d("MainScreen", "Starting data fetch...")
+                    
+                    // Fetch all data
+                    val fetchedSteps = readStepsToday(context, healthConnectClient).toInt()
+                    val fetchedSleep = readSleepToday(context, healthConnectClient)
+                    val fetchedHeartRate = readHeartRateToday(context, healthConnectClient)
+                    
+                    Log.d("MainScreen", "Fetched data - Steps: $fetchedSteps, Sleep records: ${fetchedSleep.size}, Heart rate: $fetchedHeartRate")
+                    
+                    // Update states
+                    stepsState.value = fetchedSteps
+                    sleepState.value = fetchedSleep
+                    heartRateState.value = fetchedHeartRate
+                    
+                    // Calculate sleep duration
+                    val sleepDuration = fetchedSleep.let { sleepRecords ->
+                        if (sleepRecords.isNotEmpty()) {
+                            val totalDuration = sleepRecords.sumOf { 
+                                Duration.between(it.startTime, it.endTime).toMinutes() 
+                            }
+                            val hours = totalDuration / 60
+                            val minutes = totalDuration % 60
+                            "$hours.$minutes"
+                        } else {
+                            userData.sleepDuration
+                        }
+                    }
+                    
+                    Log.d("MainScreen", "Calculated sleep duration: $sleepDuration")
                     
                     // Update user data with smartwatch data
                     val updatedUserData = userData.copy(
-                        sleepDuration = sleepState.value?.let { sleepRecords ->
-                            if (sleepRecords.isNotEmpty()) {
-                                val totalDuration = sleepRecords.sumOf { 
-                                    Duration.between(it.startTime, it.endTime).toMinutes() 
-                                }
-                                val hours = totalDuration / 60
-                                val minutes = totalDuration % 60
-                                "$hours.$minutes"
-                            } else {
-                                userData.sleepDuration
-                            }
-                        } ?: userData.sleepDuration,
-                        dailySteps = stepsState.value?.toString() ?: userData.dailySteps,
-                        heartRate = heartRateState.value?.let { String.format("%.1f", it) } ?: userData.heartRate
+                        sleepDuration = sleepDuration,
+                        dailySteps = if (fetchedSteps > 0) fetchedSteps.toString() else userData.dailySteps,
+                        heartRate = if (fetchedHeartRate > 0) String.format("%.1f", fetchedHeartRate) else userData.heartRate
                     )
+                    
+                    Log.d("MainScreen", "Updating user data: $updatedUserData")
                     
                     // Save updated data to DataStore
                     userPreferences.saveUserData(updatedUserData)
                     
                     errorState.value = null
+                    Log.d("MainScreen", "Data fetch and update completed successfully")
                 } catch (e: Exception) {
                     errorState.value = "Gagal mengambil data: ${e.message}"
                     Log.e("MainScreen", "Error fetching data", e)
@@ -123,32 +141,50 @@ fun MainScreen(
             scope.launch {
                 try {
                     isFetchingState.value = true
-                    stepsState.value = readStepsToday(context, healthConnectClient).toInt()
-                    sleepState.value = readSleepToday(context, healthConnectClient)
-                    heartRateState.value = readHeartRateToday(context, healthConnectClient)
+                    Log.d("MainScreen", "Starting data fetch...")
+                    
+                    // Fetch all data
+                    val fetchedSteps = readStepsToday(context, healthConnectClient).toInt()
+                    val fetchedSleep = readSleepToday(context, healthConnectClient)
+                    val fetchedHeartRate = readHeartRateToday(context, healthConnectClient)
+                    
+                    Log.d("MainScreen", "Fetched data - Steps: $fetchedSteps, Sleep records: ${fetchedSleep.size}, Heart rate: $fetchedHeartRate")
+                    
+                    // Update states
+                    stepsState.value = fetchedSteps
+                    sleepState.value = fetchedSleep
+                    heartRateState.value = fetchedHeartRate
+                    
+                    // Calculate sleep duration
+                    val sleepDuration = fetchedSleep.let { sleepRecords ->
+                        if (sleepRecords.isNotEmpty()) {
+                            val totalDuration = sleepRecords.sumOf { 
+                                Duration.between(it.startTime, it.endTime).toMinutes() 
+                            }
+                            val hours = totalDuration / 60
+                            val minutes = totalDuration % 60
+                            "$hours.$minutes"
+                        } else {
+                            userData.sleepDuration
+                        }
+                    }
+                    
+                    Log.d("MainScreen", "Calculated sleep duration: $sleepDuration")
                     
                     // Update user data with smartwatch data
                     val updatedUserData = userData.copy(
-                        sleepDuration = sleepState.value?.let { sleepRecords ->
-                            if (sleepRecords.isNotEmpty()) {
-                                val totalDuration = sleepRecords.sumOf { 
-                                    Duration.between(it.startTime, it.endTime).toMinutes() 
-                                }
-                                val hours = totalDuration / 60
-                                val minutes = totalDuration % 60
-                                "$hours.$minutes"
-                            } else {
-                                userData.sleepDuration
-                            }
-                        } ?: userData.sleepDuration,
-                        dailySteps = stepsState.value?.toString() ?: userData.dailySteps,
-                        heartRate = heartRateState.value?.let { String.format("%.1f", it) } ?: userData.heartRate
+                        sleepDuration = sleepDuration,
+                        dailySteps = if (fetchedSteps > 0) fetchedSteps.toString() else userData.dailySteps,
+                        heartRate = if (fetchedHeartRate > 0) String.format("%.1f", fetchedHeartRate) else userData.heartRate
                     )
+                    
+                    Log.d("MainScreen", "Updating user data: $updatedUserData")
                     
                     // Save updated data to DataStore
                     userPreferences.saveUserData(updatedUserData)
                     
                     errorState.value = null
+                    Log.d("MainScreen", "Data fetch and update completed successfully")
                 } catch (e: Exception) {
                     errorState.value = "Gagal mengambil data: ${e.message}"
                     Log.e("MainScreen", "Error fetching data", e)
@@ -172,6 +208,8 @@ fun MainScreen(
             scope.launch {
                 userPreferences.saveUserData(newData)
             }
-        }
+        },
+        permissionLauncher = permissionLauncher,
+        requiredPermissions = requiredPermissions
     )
 }

@@ -25,6 +25,58 @@ import com.example.mentalhealth.model.UserData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun ProfileEditDialog(
+    currentName: String,
+    currentEmail: String,
+    onSave: (String, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var nameValue by remember { mutableStateOf(currentName) }
+    var emailValue by remember { mutableStateOf(currentEmail) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Profile") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = nameValue,
+                    onValueChange = { nameValue = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = emailValue,
+                    onValueChange = { emailValue = it },
+                    label = { Text("Email") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(nameValue, emailValue)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun ProfileScreen(
     userData: UserData,
     onUserDataChange: (UserData) -> Unit
@@ -61,20 +113,58 @@ fun ProfileScreen(
             }
         }
 
-        // Name and Email
-        Text(
-            text = "Sharine",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Text(
-            text = "sharine@gmail.com",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
+        // Profile Header with Name and Email
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Name with Edit Icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = userData.name.ifEmpty { "Enter Name" },
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = { 
+                            editingField = "profile"
+                            showEditDialog = true 
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Email
+                Text(
+                    text = userData.email.ifEmpty { "Enter Email" },
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+        }
 
         // Profile Data Cards
         Column(
@@ -196,6 +286,17 @@ fun ProfileScreen(
     // Edit Dialog
     if (showEditDialog) {
         when (editingField) {
+            "profile" -> {
+                ProfileEditDialog(
+                    currentName = userData.name,
+                    currentEmail = userData.email,
+                    onSave = { name, email ->
+                        onUserDataChange(userData.copy(name = name, email = email))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
             "gender" -> {
                 GenderSelectionDialog(
                     currentGender = userData.gender,
@@ -220,7 +321,7 @@ fun ProfileScreen(
             "height" -> {
                 NumberInputDialog(
                     title = "Enter Height (cm)",
-                    currentValue = editingValue,
+                    currentValue = userData.height,
                     onValueChanged = { value ->
                         onUserDataChange(userData.copy(height = value))
                         showEditDialog = false
@@ -231,7 +332,7 @@ fun ProfileScreen(
             "weight" -> {
                 NumberInputDialog(
                     title = "Enter Weight (kg)",
-                    currentValue = editingValue,
+                    currentValue = userData.weight,
                     onValueChanged = { value ->
                         onUserDataChange(userData.copy(weight = value))
                         showEditDialog = false
@@ -322,6 +423,44 @@ fun ProfileDataCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TextInputDialog(
+    title: String,
+    currentValue: String,
+    onValueChanged: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var textValue by remember { mutableStateOf(currentValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onValueChanged(textValue)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 @Composable
 fun NumberInputDialog(
     title: String,
@@ -329,22 +468,24 @@ fun NumberInputDialog(
     onValueChanged: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var inputValue by remember { mutableStateOf(currentValue) }
+    var value by remember { mutableStateOf(currentValue) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             OutlinedTextField(
-                value = inputValue,
-                onValueChange = { inputValue = it },
+                value = value,
+                onValueChange = { value = it },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true
             )
         },
         confirmButton = {
             TextButton(
-                onClick = { onValueChanged(inputValue) }
+                onClick = {
+                    onValueChanged(value)
+                }
             ) {
                 Text("Save")
             }
@@ -441,7 +582,7 @@ fun SleepDisorderSelectionDialog(
     onDisorderSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val disorders = listOf("None", "Insomnia", "Sleep Apnea", "Restless Legs", "Narcolepsy")
+    val disorders = listOf("Nothing", "Insomnia", "Sleep Apnea")
 
     AlertDialog(
         onDismissRequest = onDismiss,

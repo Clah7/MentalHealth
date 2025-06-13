@@ -24,20 +24,23 @@ suspend fun readStepsToday(context: Context, client: HealthConnectClient): Long 
     }
 
     return try {
-        withTimeout(5000) { // 5 seconds timeout
+        withTimeout(10000) { // 10 seconds timeout
             val now = Instant.now()
             val todayStart = now.atZone(ZoneId.systemDefault())
                 .toLocalDate()
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
 
+            Log.d("FetchData", "Fetching steps data between $todayStart and $now")
             val resp = client.readRecords(
                 ReadRecordsRequest(
                     StepsRecord::class,
                     TimeRangeFilter.between(todayStart, now)
                 )
             )
-            resp.records.sumOf { it.count }
+            val steps = resp.records.sumOf { it.count }
+            Log.d("FetchData", "Fetched steps: $steps")
+            steps
         }
     } catch (e: TimeoutCancellationException) {
         Log.e("FetchData", "Timeout while reading steps: ${e.message}")
@@ -58,19 +61,21 @@ suspend fun readSleepToday(context: Context, client: HealthConnectClient): List<
     }
 
     return try {
-        withTimeout(5000) { // 5 seconds timeout
+        withTimeout(10000) { // 10 seconds timeout
             val now = Instant.now()
             val todayStart = now.atZone(ZoneId.systemDefault())
                 .toLocalDate()
                 .atStartOfDay(ZoneId.systemDefault())
                 .toInstant()
 
+            Log.d("FetchData", "Fetching sleep data between $todayStart and $now")
             val response = client.readRecords(
                 ReadRecordsRequest(
                     SleepSessionRecord::class,
                     TimeRangeFilter.between(todayStart, now)
                 )
             )
+            Log.d("FetchData", "Fetched ${response.records.size} sleep records")
             response.records
         }
     } catch (e: TimeoutCancellationException) {
@@ -92,7 +97,7 @@ suspend fun readHeartRateToday(context: Context, client: HealthConnectClient): D
     }
 
     return try {
-        withTimeout(5000) { // 5 seconds timeout
+        withTimeout(10000) { // 10 seconds timeout
             val now = Instant.now()
             val todayStart = now.atZone(ZoneId.systemDefault())
                 .toLocalDate()
@@ -112,16 +117,15 @@ suspend fun readHeartRateToday(context: Context, client: HealthConnectClient): D
                 )
             )
 
-            // The result is an AggregationResult, which is a map from metric to its value.
-            // HeartRateRecord.BPM_AVG returns a Long.
             val averageBpm = response[HeartRateRecord.BPM_AVG]
+            Log.d("FetchData", "Raw heart rate data: $response")
+            Log.d("FetchData", "Average BPM: $averageBpm")
 
             if (averageBpm == null) {
                 Log.d("FetchData", "No average BPM data found for today (null result from aggregate)")
                 return@withTimeout 0.0
             }
 
-            Log.d("FetchData", "Calculated average BPM (using aggregate): $averageBpm")
             averageBpm.toDouble()
         }
     } catch (e: TimeoutCancellationException) {

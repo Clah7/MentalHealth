@@ -1,16 +1,49 @@
 package com.example.mentalhealth.screen
 
-import androidx.compose.foundation.Image
+import android.util.Log
+import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
-
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,10 +54,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.records.SleepSessionRecord
 import com.example.mentalhealth.model.UserData
-import java.time.Duration
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
 
 sealed class Screen(val route: String, val icon: @Composable () -> Unit, val label: String) {
     object Home : Screen("home", { Text("🏠") }, "Home")
@@ -114,7 +150,9 @@ fun MainScreen(
     error: String?,
     isFetching: Boolean,
     userData: UserData,
-    onUserDataChange: (UserData) -> Unit
+    onUserDataChange: (UserData) -> Unit,
+    permissionLauncher: ActivityResultLauncher<Set<String>>,
+    requiredPermissions: Set<String>
 ) {
     val scrollState = rememberScrollState()
     var showFetchDialog by remember { mutableStateOf(false) }
@@ -123,15 +161,32 @@ fun MainScreen(
     var bmiExpanded by remember { mutableStateOf(false) }
     var sleepDisorderExpanded by remember { mutableStateOf(false) }
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var predictionResult by remember { mutableStateOf<String?>(null) }
+    var showPredictionError by remember { mutableStateOf(false) }
+    var predictionError by remember { mutableStateOf("") }
 
     val genderOptions = listOf("Male", "Female")
     val bmiCategories = listOf("Normal", "Overweight")
-    val sleepDisorderOptions = listOf("None", "Insomnia", "Sleep Apnea")
+    val sleepDisorderOptions = listOf("Nothing", "Insomnia", "Sleep Apnea")
 
     // Local state for editable health values
-    var editableSleepDuration by remember { mutableStateOf(userData.sleepDuration.ifEmpty { "4" }) }
-    var editableHeartRate by remember { mutableStateOf(heartRate?.toInt()?.toString() ?: userData.heartRate.ifEmpty { "98" }) }
-    var editableDailySteps by remember { mutableStateOf(steps?.toString() ?: userData.dailySteps.ifEmpty { "4300" }) }
+    var editableSleepDuration by remember { mutableStateOf(userData.sleepDuration.ifEmpty { "0" }) }
+    var editableHeartRate by remember { mutableStateOf(heartRate?.toInt()?.toString() ?: userData.heartRate.ifEmpty { "0" }) }
+    var editableDailySteps by remember { mutableStateOf(steps?.toString() ?: userData.dailySteps.ifEmpty { "0" }) }
+
+    // Track if the values were manually edited
+    var isManuallyEditing by remember { mutableStateOf(false) }
+
+    // Update local state when props change, but only if not manually editing
+    LaunchedEffect(steps, sleep, heartRate, userData) {
+        if (!isManuallyEditing) {
+            Log.d("MainScreen", "Props changed - Steps: $steps, Heart Rate: $heartRate, UserData: $userData")
+            editableSleepDuration = userData.sleepDuration.ifEmpty { "0" }
+            editableHeartRate = heartRate?.toInt()?.toString() ?: userData.heartRate.ifEmpty { "0" }
+            editableDailySteps = steps?.toString() ?: userData.dailySteps.ifEmpty { "0" }
+            Log.d("MainScreen", "Updated local state - Sleep: $editableSleepDuration, Heart Rate: $editableHeartRate, Steps: $editableDailySteps")
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -173,7 +228,7 @@ fun MainScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Hello, Sharine",
+                                    text = "Hello, ${userData.name.ifEmpty { "User" }}",
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -203,6 +258,7 @@ fun MainScreen(
                             value = editableSleepDuration,
                             unit = "hours",
                             onValueChange = {
+                                isManuallyEditing = true
                                 editableSleepDuration = it
                                 onUserDataChange(userData.copy(sleepDuration = it))
                             },
@@ -217,6 +273,7 @@ fun MainScreen(
                             value = editableHeartRate,
                             unit = "bpm",
                             onValueChange = {
+                                isManuallyEditing = true
                                 editableHeartRate = it
                                 onUserDataChange(userData.copy(heartRate = it))
                             },
@@ -231,6 +288,7 @@ fun MainScreen(
                             value = editableDailySteps,
                             unit = "steps",
                             onValueChange = {
+                                isManuallyEditing = true
                                 editableDailySteps = it
                                 onUserDataChange(userData.copy(dailySteps = it))
                             },
@@ -292,7 +350,7 @@ fun MainScreen(
                         // Sleep Disorder Dropdown Card
                         DropdownCard(
                             title = "Sleep Disorder",
-                            value = userData.sleepDisorder.ifEmpty { "None" },
+                            value = userData.sleepDisorder.ifEmpty { "Nothing" },
                             options = sleepDisorderOptions,
                             expanded = sleepDisorderExpanded,
                             onExpandedChange = { sleepDisorderExpanded = it },
@@ -303,6 +361,118 @@ fun MainScreen(
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
+
+                        // Add Prediction Button at the bottom
+                        Button(
+                            onClick = {
+                                // Validate all required fields
+                                if (userData.gender.isEmpty() ||
+                                    userData.age.isEmpty() ||
+                                    userData.sleepDuration.isEmpty() ||
+                                    userData.sleepQuality.isEmpty() ||
+                                    userData.bmiCategory.isEmpty() ||
+                                    userData.heartRate.isEmpty() ||
+                                    userData.dailySteps.isEmpty() ||
+                                    userData.sleepDisorder.isEmpty()
+                                ) {
+                                    showPredictionError = true
+                                    predictionError = "Please fill in all required fields"
+                                    return@Button
+                                }
+
+                                try {
+                                    // Prepare input data with proper type conversion
+                                    val inputData = StressPredictionRequest(
+                                        Gender = userData.gender,
+                                        Age = userData.age.toInt(),
+                                        Sleep_Duration = userData.sleepDuration.toDouble(),
+                                        Quality_of_Sleep = userData.sleepQuality.toInt(),
+                                        BMI_Category = userData.bmiCategory,
+                                        Heart_Rate = userData.heartRate.toInt(),
+                                        Daily_Steps = userData.dailySteps.toInt(),
+                                        Sleep_Disorder = userData.sleepDisorder
+                                    )
+
+                                    // Make API call
+                                    ApiClient.api.predictStress(inputData).enqueue(object : Callback<StressPredictionResponse> {
+                                        override fun onResponse(
+                                            call: Call<StressPredictionResponse>,
+                                            response: Response<StressPredictionResponse>
+                                        ) {
+                                            if (response.isSuccessful) {
+                                                response.body()?.let { result ->
+                                                    predictionResult = "Stress Level: ${result.predicted_stress_level}"
+                                                    showPredictionError = false
+                                                }
+                                            } else {
+                                                showPredictionError = true
+                                                predictionError = "Failed to get prediction: ${response.code()} - ${response.message()}"
+                                                // Log the error response body if available
+                                                response.errorBody()?.string()?.let { errorBody ->
+                                                    Log.e("API Error", "Error body: $errorBody")
+                                                }
+                                            }
+                                        }
+
+                                        override fun onFailure(call: Call<StressPredictionResponse>, t: Throwable) {
+                                            showPredictionError = true
+                                            predictionError = "Error: ${t.message}"
+                                            Log.e("API Error", "Network error", t)
+                                        }
+                                    })
+                                } catch (e: NumberFormatException) {
+                                    showPredictionError = true
+                                    predictionError = "Invalid number format in input fields"
+                                    Log.e("API Error", "Number format error", e)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text(
+                                text = "Predict Stress Level",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        // Show prediction result or error
+                        if (predictionResult != null) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            ) {
+                                Text(
+                                    text = predictionResult!!,
+                                    modifier = Modifier.padding(16.dp),
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        if (showPredictionError) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Text(
+                                    text = predictionError,
+                                    modifier = Modifier.padding(16.dp),
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
 
                         if (error != null) {
                             Card(
@@ -342,7 +512,7 @@ fun MainScreen(
                 TextButton(
                     onClick = {
                         showFetchDialog = false
-                        // Trigger fetch data here
+                        permissionLauncher.launch(requiredPermissions)
                     }
                 ) {
                     if (isFetching) {
@@ -450,6 +620,8 @@ fun InputCard(
     onValueChange: (String) -> Unit,
     placeholder: String
 ) {
+    var localValue by remember(value) { mutableStateOf(value) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -474,8 +646,11 @@ fun InputCard(
             )
 
             OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = localValue,
+                onValueChange = { newValue ->
+                    localValue = newValue
+                    onValueChange(newValue)
+                },
                 placeholder = { Text(placeholder) },
                 modifier = Modifier.weight(1f),
                 textStyle = androidx.compose.ui.text.TextStyle(
@@ -485,8 +660,43 @@ fun InputCard(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent
-                )
+                ),
+                singleLine = true
             )
         }
     }
+}
+
+// Update data classes for API request and response
+data class StressPredictionRequest(
+    val Gender: String,
+    val Age: Int,
+    val Sleep_Duration: Double,
+    val Quality_of_Sleep: Int,
+    val BMI_Category: String,
+    val Heart_Rate: Int,
+    val Daily_Steps: Int,
+    val Sleep_Disorder: String
+)
+
+data class StressPredictionResponse(
+    val predicted_stress_level: String
+)
+
+// Update API interface
+interface StressPredictionApi {
+    @POST("/predict")
+    fun predictStress(@Body input: StressPredictionRequest): Call<StressPredictionResponse>
+}
+
+// Add API client
+object ApiClient {
+    private const val BASE_URL = "https://stress-api-265312655492.asia-southeast2.run.app/"
+    
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
+    val api: StressPredictionApi = retrofit.create(StressPredictionApi::class.java)
 }
