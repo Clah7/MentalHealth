@@ -5,25 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.mentalhealth.R
+import androidx.compose.ui.unit.sp
 import com.example.mentalhealth.model.UserData
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,10 +29,9 @@ fun ProfileScreen(
     userData: UserData,
     onUserDataChange: (UserData) -> Unit
 ) {
-    var showPersonalEditDialog by remember { mutableStateOf(false) }
-    val genderOptions = listOf("Male", "Female")
-    val bmiCategories = listOf("Normal", "Overweight")
-    val sleepDisorderOptions = listOf("None", "Insomnia", "Sleep Apnea")
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editingField by remember { mutableStateOf("") }
+    var editingValue by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -43,241 +39,437 @@ fun ProfileScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Profile Header Section
-        Box(modifier = Modifier.padding(bottom = 24.dp)) {
-            Image(
-                painter = painterResource(id = R.drawable.profile_placeholder),
-                contentDescription = "Profile Picture",
-                contentScale = ContentScale.Crop,
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Profile Picture
+        Box(
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(100.dp)
                     .clip(CircleShape)
-            )
-            IconButton(
-                onClick = { /* TODO: Handle profile picture edit */ },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-8).dp, y = (-8).dp)
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit Profile Picture",
-                    tint = Color.White
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile Picture",
+                    tint = Color.White,
+                    modifier = Modifier.size(50.dp)
                 )
             }
         }
 
+        // Name and Email
         Text(
-            text = "Shane", // Placeholder for Name
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            text = "Sharine",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 4.dp)
         )
         Text(
-            text = "shane.sine@gmail.com", // Placeholder for Email
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = "sharine@gmail.com",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Metrics Section
-        Row(
+        // Profile Data Cards
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MetricItem("2h 30m", "Total time", R.drawable.ic_hourglass_empty)
-            MetricItem("7200 cal", "Burned", R.drawable.ic_fire)
-            MetricItem("2", "Done", R.drawable.ic_fitness_center)
-        }
+            // Gender and Age Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = userData.gender.ifEmpty { "Gender" },
+                    value = "",
+                    isDropdown = true,
+                    onClick = {
+                        editingField = "gender"
+                        showEditDialog = true
+                    }
+                )
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = "",
+                    value = userData.age.ifEmpty { "18" },
+                    unit = "years old",
+                    onClick = {
+                        editingField = "age"
+                        editingValue = userData.age
+                        showEditDialog = true
+                    }
+                )
+            }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            // Height and Weight Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = "",
+                    value = userData.height.ifEmpty { "167" },
+                    unit = "cm",
+                    onClick = {
+                        editingField = "height"
+                        editingValue = userData.height
+                        showEditDialog = true
+                    }
+                )
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = "",
+                    value = userData.weight.ifEmpty { "58" },
+                    unit = "kg",
+                    onClick = {
+                        editingField = "weight"
+                        editingValue = userData.weight
+                        showEditDialog = true
+                    }
+                )
+            }
 
-        // List Items (Personal, General, Notification, Help)
-        Column(modifier = Modifier.fillMaxWidth()) {
-            ProfileListItem(
-                icon = Icons.Default.Person,
-                title = "Personal",
-                onClick = { showPersonalEditDialog = true }
-            )
-            ProfileListItem(
-                icon = Icons.Default.Info,
-                title = "Help",
-                onClick = { /* Handle Help */ }
-            )
+            // BMI and Status Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = "BMI",
+                    value = "",
+                    isDark = true,
+                    onClick = {
+                        editingField = "bmi"
+                        editingValue = userData.bmiCategory
+                        showEditDialog = true
+                    }
+                )
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = userData.bmiCategory.ifEmpty { "Normal" },
+                    value = "",
+                    onClick = {
+                        editingField = "bmiCategory"
+                        showEditDialog = true
+                    }
+                )
+            }
+
+            // Sleep Disorder Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Sleep Disorder",
+                    value = "",
+                    isDark = true,
+                    onClick = {
+                        editingField = "sleepDisorder"
+                        showEditDialog = true
+                    }
+                )
+                ProfileDataCard(
+                    modifier = Modifier.weight(1f),
+                    label = userData.sleepDisorder.ifEmpty { "Insomnia" },
+                    value = "",
+                    onClick = {
+                        editingField = "sleepDisorder"
+                        showEditDialog = true
+                    }
+                )
+            }
         }
     }
 
-    // Dialog for Personal Information Edit
-    if (showPersonalEditDialog) {
-        AlertDialog(
-            onDismissRequest = { showPersonalEditDialog = false },
-            title = { Text("Edit Personal Information") },
-            text = {
-                Column {
-                    // Gender Dropdown
-                    var genderExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = genderExpanded,
-                        onExpandedChange = { genderExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = userData.gender,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Gender") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = genderExpanded,
-                            onDismissRequest = { genderExpanded = false }
-                        ) {
-                            genderOptions.forEach { gender ->
-                                DropdownMenuItem(
-                                    text = { Text(gender) },
-                                    onClick = {
-                                        onUserDataChange(userData.copy(gender = gender))
-                                        genderExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
+    // Edit Dialog
+    if (showEditDialog) {
+        when (editingField) {
+            "gender" -> {
+                GenderSelectionDialog(
+                    currentGender = userData.gender,
+                    onGenderSelected = { gender ->
+                        onUserDataChange(userData.copy(gender = gender))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+            "age" -> {
+                NumberInputDialog(
+                    title = "Enter Age",
+                    currentValue = editingValue,
+                    onValueChanged = { value ->
+                        onUserDataChange(userData.copy(age = value))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+            "height" -> {
+                NumberInputDialog(
+                    title = "Enter Height (cm)",
+                    currentValue = editingValue,
+                    onValueChanged = { value ->
+                        onUserDataChange(userData.copy(height = value))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+            "weight" -> {
+                NumberInputDialog(
+                    title = "Enter Weight (kg)",
+                    currentValue = editingValue,
+                    onValueChanged = { value ->
+                        onUserDataChange(userData.copy(weight = value))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+            "bmiCategory" -> {
+                BMICategorySelectionDialog(
+                    currentCategory = userData.bmiCategory,
+                    onCategorySelected = { category ->
+                        onUserDataChange(userData.copy(bmiCategory = category))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+            "sleepDisorder" -> {
+                SleepDisorderSelectionDialog(
+                    currentDisorder = userData.sleepDisorder,
+                    onDisorderSelected = { disorder ->
+                        onUserDataChange(userData.copy(sleepDisorder = disorder))
+                        showEditDialog = false
+                    },
+                    onDismiss = { showEditDialog = false }
+                )
+            }
+        }
+    }
+}
 
-                    // Age
-                    OutlinedTextField(
-                        value = userData.age,
-                        onValueChange = { onUserDataChange(userData.copy(age = it)) },
-                        label = { Text("Age") },
-                        modifier = Modifier.fillMaxWidth()
+@Composable
+fun ProfileDataCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    unit: String = "",
+    isDark: Boolean = false,
+    isDropdown: Boolean = false,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(80.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color.Black else MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (label.isNotEmpty() && value.isEmpty()) {
+                // Show only label (like "BMI", "Sleep Disorder", "Female")
+                Text(
+                    text = label,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            } else if (value.isNotEmpty()) {
+                // Show value with unit
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = value,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // BMI Category
-                    var bmiExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = bmiExpanded,
-                        onExpandedChange = { bmiExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = userData.bmiCategory,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("BMI Category") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bmiExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor()
+                    if (unit.isNotEmpty()) {
+                        Text(
+                            text = unit,
+                            fontSize = 12.sp,
+                            color = if (isDark) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
-                        ExposedDropdownMenu(
-                            expanded = bmiExpanded,
-                            onDismissRequest = { bmiExpanded = false }
-                        ) {
-                            bmiCategories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    onClick = {
-                                        onUserDataChange(userData.copy(bmiCategory = category))
-                                        bmiExpanded = false
-                                    }
-                                )
-                            }
-                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Sleep Disorder
-                    var sleepDisorderExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = sleepDisorderExpanded,
-                        onExpandedChange = { sleepDisorderExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = userData.sleepDisorder.ifEmpty { "None" },
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Sleep Disorder") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sleepDisorderExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = sleepDisorderExpanded,
-                            onDismissRequest = { sleepDisorderExpanded = false }
-                        ) {
-                            sleepDisorderOptions.forEach { disorder ->
-                                DropdownMenuItem(
-                                    text = { Text(disorder) },
-                                    onClick = {
-                                        onUserDataChange(userData.copy(sleepDisorder = disorder))
-                                        sleepDisorderExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPersonalEditDialog = false }) {
-                    Text("OK")
                 }
             }
-        )
-    }
-}
-
-@Composable
-fun MetricItem(value: String, label: String, iconRes: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            modifier = Modifier.size(48.dp)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-fun ProfileListItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = title, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
         }
     }
-    HorizontalDivider()
 }
 
-@Preview(showBackground = true)
 @Composable
-fun PreviewProfileScreen() {
-    MaterialTheme {
-        ProfileScreen(UserData(), {})
-    }
-} 
+fun NumberInputDialog(
+    title: String,
+    currentValue: String,
+    onValueChanged: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var inputValue by remember { mutableStateOf(currentValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = inputValue,
+                onValueChange = { inputValue = it },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onValueChanged(inputValue) }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun GenderSelectionDialog(
+    currentGender: String,
+    onGenderSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val genderOptions = listOf("Male", "Female")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Gender") },
+        text = {
+            Column {
+                genderOptions.forEach { gender ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onGenderSelected(gender) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentGender == gender,
+                            onClick = { onGenderSelected(gender) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(gender)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun BMICategorySelectionDialog(
+    currentCategory: String,
+    onCategorySelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val categories = listOf("Underweight", "Normal", "Overweight", "Obese")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select BMI Category") },
+        text = {
+            Column {
+                categories.forEach { category ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCategorySelected(category) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentCategory == category,
+                            onClick = { onCategorySelected(category) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(category)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun SleepDisorderSelectionDialog(
+    currentDisorder: String,
+    onDisorderSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val disorders = listOf("None", "Insomnia", "Sleep Apnea", "Restless Legs", "Narcolepsy")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Sleep Disorder") },
+        text = {
+            Column {
+                disorders.forEach { disorder ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDisorderSelected(disorder) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentDisorder == disorder || (currentDisorder.isEmpty() && disorder == "None"),
+                            onClick = { onDisorderSelected(disorder) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(disorder)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}

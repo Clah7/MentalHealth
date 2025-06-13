@@ -10,5 +10,8 @@ data class UserData(
     val dailySteps: String = "",
     val sleepDisorder: String = "",
     val systolicBP: String = "",
-    val diastolicBP: String = ""
+    val diastolicBP: String = "",
+    val height: String = "",
+    val weight: String = ""
+
 ) 
