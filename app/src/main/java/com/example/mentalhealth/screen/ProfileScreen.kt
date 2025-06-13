@@ -543,7 +543,7 @@ fun BMICategorySelectionDialog(
     onCategorySelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val categories = listOf("Underweight", "Normal", "Overweight", "Obese")
+    val categories = listOf("Normal", "Overweight")
 
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -188,6 +188,13 @@ fun MainScreen(
         }
     }
 
+    // Reset manual editing state when sync is triggered
+    LaunchedEffect(isFetching) {
+        if (isFetching) {
+            isManuallyEditing = false
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
