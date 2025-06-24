@@ -1,4 +1,3 @@
-import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -201,9 +200,6 @@ def load_model_fuzzy():
     plt.ylabel('True Label')
     plt.show()
 
-    joblib.dump(model, 'model/stress_model.pkl')
-    joblib.dump(encoders, 'model/encoders.pkl')
-
     return model, encoders, accuracy
 
 def predict_stress_level_fuzzy(data, model, encoders):
@@ -330,4 +326,3 @@ if __name__ == "__main__":
         print(f"Prediksi Tingkat Stres untuk data contoh 2: {predicted_stress_2}")
 
         evaluate_with_cross_validation()
-        
