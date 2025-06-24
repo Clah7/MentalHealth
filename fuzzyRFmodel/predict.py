@@ -8,8 +8,6 @@ from skfuzzy import control as ctrl
 
 # --- LANGKAH 1: Impor Fungsi dari Skrip Training ---
 # Pastikan skrip training Anda disimpan sebagai 'model_fuzzy.py' di direktori yang sama.
-
-
 def create_fuzzy_features(df_input):
     """
     Fungsi ini telah diperbarui sepenuhnya berdasarkan analisis histogram data Anda.
@@ -23,23 +21,17 @@ def create_fuzzy_features(df_input):
     age['middle'] = fuzz.trimf(age.universe, [38, 44, 59])
 
     # 2. Durasi Tidur (Sleep Duration) - Konfirmasi, definisi awal sudah baik
-    sleep_duration = ctrl.Antecedent(
-        np.arange(5.5, 9.1, 0.1), 'Sleep Duration')
-    sleep_duration['short'] = fuzz.trimf(
-        sleep_duration.universe, [5.5, 6.2, 7.0])
-    sleep_duration['adequate'] = fuzz.trimf(
-        sleep_duration.universe, [6.8, 8.0, 9.0])
+    sleep_duration = ctrl.Antecedent(np.arange(5.5, 9.1, 0.1), 'Sleep Duration')
+    sleep_duration['short'] = fuzz.trimf(sleep_duration.universe, [5.5, 6.2, 7.0])
+    sleep_duration['adequate'] = fuzz.trimf(sleep_duration.universe, [6.8, 8.0, 9.0])
     # Kategori 'long' bisa dipertahankan untuk kasus edge, meskipun jarang di data Anda
-    sleep_duration['long'] = fuzz.trimf(
-        sleep_duration.universe, [8.8, 9.0, 9.0])
+    sleep_duration['long'] = fuzz.trimf(sleep_duration.universe, [8.8, 9.0, 9.0])
 
     # 3. Kualitas Tidur (Quality of Sleep) - Disesuaikan minor
     quality_of_sleep = ctrl.Antecedent(np.arange(4, 11, 1), 'Quality of Sleep')
     quality_of_sleep['poor'] = fuzz.trimf(quality_of_sleep.universe, [4, 4, 6])
-    quality_of_sleep['average'] = fuzz.trimf(
-        quality_of_sleep.universe, [5, 6.5, 8])
-    quality_of_sleep['excellent'] = fuzz.trimf(
-        quality_of_sleep.universe, [7, 9, 10])
+    quality_of_sleep['average'] = fuzz.trimf(quality_of_sleep.universe, [5, 6.5, 8])
+    quality_of_sleep['excellent'] = fuzz.trimf(quality_of_sleep.universe, [7, 9, 10])
 
     # 4. Denyut Jantung (Heart Rate) - Disesuaikan signifikan ("Zoom In" pada rentang normal)
     heart_rate = ctrl.Antecedent(np.arange(65, 87, 1), 'Heart Rate')
@@ -50,8 +42,7 @@ def create_fuzzy_features(df_input):
     # 5. Jumlah Langkah Harian (Daily Steps) - Disesuaikan dengan klaster data
     daily_steps = ctrl.Antecedent(np.arange(3000, 10001, 100), 'Daily Steps')
     daily_steps['low'] = fuzz.trimf(daily_steps.universe, [3000, 4500, 6000])
-    daily_steps['moderate'] = fuzz.trimf(
-        daily_steps.universe, [5500, 7800, 9000])
+    daily_steps['moderate'] = fuzz.trimf(daily_steps.universe, [5500, 7800, 9000])
     daily_steps['high'] = fuzz.trimf(daily_steps.universe, [8500, 9500, 10000])
 
     # ------------------ Proses Fuzzifikasi dengan Nama Kategori Baru ------------------
@@ -65,42 +56,28 @@ def create_fuzzy_features(df_input):
         current_daily_steps = row['Daily Steps']
 
         # Fuzzifikasi Usia (Age) - Kategori 'old' dihilangkan
-        age_young_m = fuzz.interp_membership(
-            age.universe, age['young'].mf, current_age)
-        age_middle_m = fuzz.interp_membership(
-            age.universe, age['middle'].mf, current_age)
-
+        age_young_m = fuzz.interp_membership(age.universe, age['young'].mf, current_age)
+        age_middle_m = fuzz.interp_membership(age.universe, age['middle'].mf, current_age)
+        
         # Fuzzifikasi Durasi Tidur (Sleep Duration)
-        sd_short_m = fuzz.interp_membership(
-            sleep_duration.universe, sleep_duration['short'].mf, current_sleep_duration)
-        sd_adequate_m = fuzz.interp_membership(
-            sleep_duration.universe, sleep_duration['adequate'].mf, current_sleep_duration)
-        sd_long_m = fuzz.interp_membership(
-            sleep_duration.universe, sleep_duration['long'].mf, current_sleep_duration)
+        sd_short_m = fuzz.interp_membership(sleep_duration.universe, sleep_duration['short'].mf, current_sleep_duration)
+        sd_adequate_m = fuzz.interp_membership(sleep_duration.universe, sleep_duration['adequate'].mf, current_sleep_duration)
+        sd_long_m = fuzz.interp_membership(sleep_duration.universe, sleep_duration['long'].mf, current_sleep_duration)
 
         # Fuzzifikasi Kualitas Tidur (Quality of Sleep)
-        qos_poor_m = fuzz.interp_membership(
-            quality_of_sleep.universe, quality_of_sleep['poor'].mf, current_quality_of_sleep)
-        qos_average_m = fuzz.interp_membership(
-            quality_of_sleep.universe, quality_of_sleep['average'].mf, current_quality_of_sleep)
-        qos_excellent_m = fuzz.interp_membership(
-            quality_of_sleep.universe, quality_of_sleep['excellent'].mf, current_quality_of_sleep)
-
+        qos_poor_m = fuzz.interp_membership(quality_of_sleep.universe, quality_of_sleep['poor'].mf, current_quality_of_sleep)
+        qos_average_m = fuzz.interp_membership(quality_of_sleep.universe, quality_of_sleep['average'].mf, current_quality_of_sleep)
+        qos_excellent_m = fuzz.interp_membership(quality_of_sleep.universe, quality_of_sleep['excellent'].mf, current_quality_of_sleep)
+        
         # Fuzzifikasi Denyut Jantung (Heart Rate) - Menggunakan nama kategori baru
-        hr_normal_low_m = fuzz.interp_membership(
-            heart_rate.universe, heart_rate['normal_low'].mf, current_heart_rate)
-        hr_normal_mid_m = fuzz.interp_membership(
-            heart_rate.universe, heart_rate['normal_mid'].mf, current_heart_rate)
-        hr_normal_high_m = fuzz.interp_membership(
-            heart_rate.universe, heart_rate['normal_high'].mf, current_heart_rate)
+        hr_normal_low_m = fuzz.interp_membership(heart_rate.universe, heart_rate['normal_low'].mf, current_heart_rate)
+        hr_normal_mid_m = fuzz.interp_membership(heart_rate.universe, heart_rate['normal_mid'].mf, current_heart_rate)
+        hr_normal_high_m = fuzz.interp_membership(heart_rate.universe, heart_rate['normal_high'].mf, current_heart_rate)
 
         # Fuzzifikasi Jumlah Langkah (Daily Steps)
-        ds_low_m = fuzz.interp_membership(
-            daily_steps.universe, daily_steps['low'].mf, current_daily_steps)
-        ds_moderate_m = fuzz.interp_membership(
-            daily_steps.universe, daily_steps['moderate'].mf, current_daily_steps)
-        ds_high_m = fuzz.interp_membership(
-            daily_steps.universe, daily_steps['high'].mf, current_daily_steps)
+        ds_low_m = fuzz.interp_membership(daily_steps.universe, daily_steps['low'].mf, current_daily_steps)
+        ds_moderate_m = fuzz.interp_membership(daily_steps.universe, daily_steps['moderate'].mf, current_daily_steps)
+        ds_high_m = fuzz.interp_membership(daily_steps.universe, daily_steps['high'].mf, current_daily_steps)
 
         # Membuat dictionary dengan key yang telah diperbarui
         fuzzy_features_list.append({
@@ -115,9 +92,8 @@ def create_fuzzy_features(df_input):
             # Daily Steps: Tetap
             'DS_low_M': ds_low_m, 'DS_moderate_M': ds_moderate_m, 'DS_high_M': ds_high_m
         })
-
+        
     return pd.DataFrame(fuzzy_features_list)
-
 
 app = FastAPI(
     title="Stress Level Prediction API",
@@ -132,8 +108,7 @@ try:
     # Ambil nama fitur yang digunakan saat training untuk memastikan konsistensi
     model_feature_names = model.feature_names_in_
 except FileNotFoundError:
-    raise RuntimeError(
-        "Model 'stress_model.pkl' or 'encoders.pkl' not found. Please train the model first.")
+    raise RuntimeError("Model 'stress_model.pkl' or 'encoders.pkl' not found. Please train the model first.")
 
 
 # Definisikan struktur data input
@@ -160,7 +135,6 @@ class InputData(BaseModel):
                 "Sleep_Disorder": "Nothing"
             }
         }
-
 
 @app.get("/", tags=["General"])
 def read_root():
@@ -190,18 +164,15 @@ def predict(data: InputData):
         df_input = pd.DataFrame.from_dict(input_dict)
 
         # Pre-processing kecil yang sama seperti di training
-        df_input['BMI Category'] = df_input['BMI Category'].replace(
-            "Normal Weight", "Normal")
-        df_input['Sleep Disorder'] = df_input['Sleep Disorder'].fillna(
-            "Nothing")
+        df_input['BMI Category'] = df_input['BMI Category'].replace("Normal Weight", "Normal")
+        df_input['Sleep Disorder'] = df_input['Sleep Disorder'].fillna("Nothing")
 
         # --- LANGKAH 3: Buat Fitur Fuzzy ---
         # Panggil fungsi yang sama dari skrip training Anda
         fuzzy_df = create_fuzzy_features(df_input)
 
         # --- LANGKAH 4: Gabungkan Fitur Asli dan Fuzzy ---
-        df_hybrid = pd.concat([df_input.reset_index(
-            drop=True), fuzzy_df.reset_index(drop=True)], axis=1)
+        df_hybrid = pd.concat([df_input.reset_index(drop=True), fuzzy_df.reset_index(drop=True)], axis=1)
 
         # --- LANGKAH 5: Lakukan Encoding pada Kolom Kategorikal ---
         for col in ['Gender', 'BMI Category', 'Sleep Disorder']:
@@ -210,29 +181,26 @@ def predict(data: InputData):
                 df_hybrid[col] = encoders[col].transform(df_hybrid[col])
             else:
                 raise ValueError(f"Encoder for column '{col}' not found.")
-
+        
         # --- LANGKAH 6: Pastikan Urutan Kolom Benar ---
         # Ini adalah langkah pengamanan untuk memastikan DataFrame memiliki
         # semua 22 kolom dalam urutan yang sama persis seperti saat model dilatih.
-        final_input_df = df_hybrid.reindex(
-            columns=model_feature_names, fill_value=0)
+        final_input_df = df_hybrid.reindex(columns=model_feature_names, fill_value=0)
 
         # --- Lakukan Prediksi ---
         prediction_encoded = model.predict(final_input_df)
-
+        
         # Decode hasil prediksi ke label yang bisa dibaca
-        stress_level_numpy = encoders['Stress Level'].inverse_transform(
-            prediction_encoded)[0]
-
+        stress_level_numpy = encoders['Stress Level'].inverse_transform(prediction_encoded)[0]
+        
         # --- PERBAIKAN: Konversi tipe data NumPy ke tipe data standar Python ---
         stress_level = str(stress_level_numpy)
-
+        
         return {"predicted_stress_level": stress_level}
-
+    
     except KeyError as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid category value provided. Error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid category value provided. Error: {e}")
     except Exception as e:
         # Tangkap error lain untuk debugging
-        raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
