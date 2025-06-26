@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 
 
 class ANFIS:
-    def __init__(self, n_inputs, n_rules=5, learning_rate=0.01, epochs=100):
+    def __init__(self, n_inputs, n_rules, learning_rate, epochs):
         self.n_inputs = n_inputs
         self.n_rules = n_rules
         self.learning_rate = learning_rate
@@ -236,10 +236,6 @@ if __name__ == "__main__":
     print("Loading and preprocessing data...")
     X, y = preprocess_data()
 
-    # Note: For your actual dataset, use:
-    # df = pd.read_csv('dataset.csv')
-    # Then apply the same preprocessing steps
-
     print(f"Dataset shape: {X.shape}")
     print(f"Features: {list(X.columns)}")
 
@@ -254,10 +250,11 @@ if __name__ == "__main__":
     X_test_scaled = scaler.transform(X_test)
 
     # Create and train ANFIS model
+    # 🔧 Naikkan jumlah rules dan epoch
     anfis = ANFIS(
         n_inputs=X_train_scaled.shape[1],
-        n_rules=3,  # Adjust based on your data complexity
-        learning_rate=0.01,
+        n_rules=4,
+        learning_rate=0.05,
         epochs=100
     )
 
@@ -284,14 +281,25 @@ if __name__ == "__main__":
 
     # Example prediction for new data
     print("\n=== Example Prediction ===")
-    # Create a sample input (Male, Age 30, Sleep Duration 7, Quality 8, Normal BMI, HR 70, Steps 8000, No disorder)
+    # Create a sample input 
     sample_input = np.array([[0, 100, 7.0, 8, 0, 70, 10000, 0]])
     sample_input_scaled = scaler.transform(sample_input)
     prediction = anfis.predict(sample_input_scaled)
     rounded_prediction = np.clip(np.round(prediction[0]), 1, 10).astype(int)
     print(f"Predicted stress level for sample input: {rounded_prediction}")
-
-    # Save model and scaler to .pkl file
-    with open("anfis_model.pkl", "wb") as f:
-        pickle.dump({"model": anfis, "scaler": scaler}, f)
-    print("Model saved as anfis_model.pkl")
+    print("\n=== Sensitivity Test: Sleep Duration vs Predicted Stress ===")
+    samples = []
+    preds = []
+    for dur in np.arange(4.0, 9.0, 0.5):
+        row = np.array([[0, 40, dur, 8, 0, 70, 7000, 0]])  # semua tetap, hanya durasi berubah
+        row_scaled = scaler.transform(row)
+        pred = anfis.predict(row_scaled)[0]
+        samples.append(dur)
+        preds.append(pred)
+    plt.figure(figsize=(8,5))
+    plt.plot(samples, preds, marker='o')
+    plt.xlabel("Sleep Duration")
+    plt.ylabel("Predicted Stress Level")
+    plt.title("Sleep Duration vs Predicted Stress")
+    plt.grid(True)
+    plt.show()
