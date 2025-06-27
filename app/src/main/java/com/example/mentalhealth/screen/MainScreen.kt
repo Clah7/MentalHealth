@@ -3,7 +3,9 @@ package com.example.mentalhealth.screen
 import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -48,12 +51,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mentalhealth.R
 import com.example.mentalhealth.model.UserData
 import retrofit2.Call
 import retrofit2.Callback
@@ -62,7 +69,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
-import androidx.lifecycle.viewmodel.compose.viewModel
+
 
 class StressViewModel : ViewModel() {
     var predictionResult by mutableStateOf<String?>(null)
@@ -70,9 +77,9 @@ class StressViewModel : ViewModel() {
     var isLoading by mutableStateOf(false)
 }
 
-sealed class Screen(val route: String, val icon: @Composable () -> Unit, val label: String) {
-    object Home : Screen("home", { Text("🏠") }, "Home")
-    object Profile : Screen("profile", { Text("👤") }, "Profile")
+sealed class Screen(val icon: @Composable () -> Unit, val label: String) {
+    object Home : Screen({ Text("🏠") }, "Home")
+    object Profile : Screen({ Text("👤") }, "Profile")
 }
 
 
@@ -98,7 +105,7 @@ fun MainScreen(
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
 
     val genderOptions = listOf("Male", "Female")
-    val bmiCategories = listOf("Normal", "Overweight")
+    val bmiCategories = listOf("Normal", "Overweight", "Obese")
     val sleepDisorderOptions = listOf("Nothing", "Insomnia", "Sleep Apnea")
 
     val viewModel: StressViewModel = viewModel()
@@ -107,21 +114,21 @@ fun MainScreen(
     var editableSleepDuration by remember {
         mutableStateOf(
             if (userData.sleepDuration.isNotEmpty()) userData.sleepDuration
-            else "0"
+            else ""
         )
     }
 
     var editableHeartRate by remember {
         mutableStateOf(
             if (userData.heartRate.isNotEmpty()) userData.heartRate
-            else heartRate?.toInt()?.toString() ?: "0"
+            else ""
         )
     }
 
     var editableDailySteps by remember {
         mutableStateOf(
             if (userData.dailySteps.isNotEmpty()) userData.dailySteps
-            else steps?.toString() ?: "0"
+            else steps?.toString() ?: ""
         )
     }
 
@@ -135,7 +142,10 @@ fun MainScreen(
     // AND only if the new values are actually available (not null)
     LaunchedEffect(steps, sleep, heartRate, userData) {
         if (!isManuallyEditing) {
-            Log.d("MainScreen", "Props changed - Steps: $steps, Heart Rate: $heartRate, UserData: $userData")
+            Log.d(
+                "MainScreen",
+                "Props changed - Steps: $steps, Heart Rate: $heartRate, UserData: $userData"
+            )
 
             // Only update if userData has values, otherwise keep current values
             if (userData.sleepDuration.isNotEmpty()) {
@@ -158,7 +168,10 @@ fun MainScreen(
             }
             // If both are null/empty, keep the current editableDailySteps value
 
-            Log.d("MainScreen", "Updated local state - Sleep: $editableSleepDuration, Heart Rate: $editableHeartRate, Steps: $editableDailySteps")
+            Log.d(
+                "MainScreen",
+                "Updated local state - Sleep: $editableSleepDuration, Heart Rate: $editableHeartRate, Steps: $editableDailySteps"
+            )
         }
     }
 
@@ -168,6 +181,16 @@ fun MainScreen(
             isManuallyEditing = false
         }
     }
+
+    // Di MainScreen, tambahkan state error untuk setiap field required
+    var sleepDurationError by remember { mutableStateOf(false) }
+    var heartRateError by remember { mutableStateOf(false) }
+    var dailyStepsError by remember { mutableStateOf(false) }
+    var genderError by remember { mutableStateOf(false) }
+    var ageError by remember { mutableStateOf(false) }
+    var sleepQualityError by remember { mutableStateOf(false) }
+    var bmiCategoryError by remember { mutableStateOf(false) }
+    var sleepDisorderError by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -196,14 +219,13 @@ fun MainScreen(
                 Screen.Home -> {
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(scrollState)
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.Start
+                            .fillMaxSize()
                     ) {
-                        // Header Section with Sync Button and Edit Toggle
+                        // Header Section with Sync Button and Edit Toggle (sticky)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 24.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -215,28 +237,30 @@ fun MainScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // Edit/Lock Toggle Button
-                                Button(
-                                    onClick = { isEditMode = !isEditMode },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isEditMode)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.secondary
-                                    ),
-                                    modifier = Modifier.height(40.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Transparent)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { isEditMode = !isEditMode }
                                 ) {
-                                    Text(
-                                        text = if (isEditMode) "🔓 Edit" else "🔒 Lock",
-                                        fontSize = 14.sp
+                                    Icon(
+                                        painter = if (!isEditMode) painterResource(id = R.drawable.edit) else painterResource(id = R.drawable.check),
+                                        contentDescription = if (!isEditMode) "Edit" else "Lock",
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .size(if (!isEditMode) 24.dp else 28.dp),
+                                        tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-
                                 // Sync Button
                                 IconButton(
                                     onClick = { showFetchDialog = true },
@@ -245,301 +269,364 @@ fun MainScreen(
                                         .clip(CircleShape)
                                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                                 ) {
-                                    Text(
-                                        text = "\uD83D\uDD04",
-                                        fontSize = 20.sp
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.sync),
+                                        modifier = Modifier.size(18.dp),
+                                        contentDescription = "Sync"
                                     )
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Sleep Duration Card (Two Column)
-                        TwoColumnHealthCard(
-                            title = "Sleep\nDuration",
-                            value = editableSleepDuration,
-                            unit = "hours",
-                            onValueChange = {
-                                if (isEditMode) {
-                                    isManuallyEditing = true
-                                    editableSleepDuration = it
-                                    onUserDataChange(userData.copy(sleepDuration = it))
-                                }
-                            },
-                            hasData = sleep != null && sleep.isNotEmpty(),
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Heart Rate Card (Two Column)
-                        TwoColumnHealthCard(
-                            title = "Heart\nRate",
-                            value = editableHeartRate,
-                            unit = "bpm",
-                            onValueChange = {
-                                if (isEditMode) {
-                                    isManuallyEditing = true
-                                    editableHeartRate = it
-                                    onUserDataChange(userData.copy(heartRate = it))
-                                }
-                            },
-                            hasData = heartRate != null,
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Daily Steps Card (Two Column)
-                        TwoColumnHealthCard(
-                            title = "Daily\nSteps",
-                            value = editableDailySteps,
-                            unit = "steps",
-                            onValueChange = {
-                                if (isEditMode) {
-                                    isManuallyEditing = true
-                                    editableDailySteps = it
-                                    onUserDataChange(userData.copy(dailySteps = it))
-                                }
-                            },
-                            hasData = steps != null,
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // BMI Category Dropdown Card
-                        DropdownCard(
-                            title = "BMI Category",
-                            value = userData.bmiCategory.ifEmpty { "Normal" },
-                            options = bmiCategories,
-                            expanded = bmiExpanded,
-                            onExpandedChange = { if (isEditMode) bmiExpanded = it },
-                            onOptionSelected = { option ->
-                                if (isEditMode) {
-                                    onUserDataChange(userData.copy(bmiCategory = option))
-                                    bmiExpanded = false
-                                }
-                            },
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Gender Dropdown Card
-                        DropdownCard(
-                            title = "Gender",
-                            value = userData.gender.ifEmpty { "Select Gender" },
-                            options = genderOptions,
-                            expanded = genderExpanded,
-                            onExpandedChange = { if (isEditMode) genderExpanded = it },
-                            onOptionSelected = { option ->
-                                if (isEditMode) {
-                                    onUserDataChange(userData.copy(gender = option))
-                                    genderExpanded = false
-                                }
-                            },
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Age Input Card
-                        InputCard(
-                            title = "Age",
-                            value = userData.age,
-                            onValueChange = {
-                                if (isEditMode) {
-                                    onUserDataChange(userData.copy(age = it))
-                                }
-                            },
-                            placeholder = "Enter your age",
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Sleep Quality Input Card
-                        InputCard(
-                            title = "Sleep Quality",
-                            value = userData.sleepQuality,
-                            onValueChange = {
-                                if (isEditMode) {
-                                    onUserDataChange(userData.copy(sleepQuality = it))
-                                }
-                            },
-                            placeholder = "Rate 1-10",
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Sleep Disorder Dropdown Card
-                        DropdownCard(
-                            title = "Sleep Disorder",
-                            value = userData.sleepDisorder.ifEmpty { "Nothing" },
-                            options = sleepDisorderOptions,
-                            expanded = sleepDisorderExpanded,
-                            onExpandedChange = { if (isEditMode) sleepDisorderExpanded = it },
-                            onOptionSelected = { option ->
-                                if (isEditMode) {
-                                    onUserDataChange(userData.copy(sleepDisorder = option))
-                                    sleepDisorderExpanded = false
-                                }
-                            },
-                            isEditMode = isEditMode
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Prediction Button
-                        Button(
-                            onClick = {
-                                // Validate all required fields
-                                if (userData.gender.isEmpty() ||
-                                    userData.age.isEmpty() ||
-                                    editableSleepDuration.isEmpty() ||
-                                    userData.sleepQuality.isEmpty() ||
-                                    userData.bmiCategory.isEmpty() ||
-                                    editableHeartRate.isEmpty() ||
-                                    editableDailySteps.isEmpty() ||
-                                    userData.sleepDisorder.isEmpty()
-                                ) {
-                                    viewModel.predictionError = "Please fill in all required fields"
-                                    viewModel.predictionResult = null
-                                    return@Button
-                                }
-
-                                try {
-                                    // Create the request using current values
-                                    val inputData = StressPredictionRequest(
-                                        Gender = userData.gender,
-                                        Age = userData.age.toInt(),
-                                        Sleep_Duration = editableSleepDuration.toDouble(),
-                                        Quality_of_Sleep = userData.sleepQuality.toInt(),
-                                        BMI_Category = userData.bmiCategory,
-                                        Heart_Rate = editableHeartRate.toInt(),
-                                        Daily_Steps = editableDailySteps.toInt(),
-                                        Sleep_Disorder = userData.sleepDisorder
-                                    )
-
-                                    viewModel.isLoading = true
-                                    viewModel.predictionError = null
-
-                                    // Make API call
-                                    ApiClient.api.predictStress(inputData).enqueue(object : Callback<StressPredictionResponse> {
-                                        override fun onResponse(
-                                            call: Call<StressPredictionResponse>,
-                                            response: Response<StressPredictionResponse>
-                                        ) {
-                                            viewModel.isLoading = false
-                                            if (response.isSuccessful) {
-                                                response.body()?.let { result ->
-                                                    viewModel.predictionResult = "Stress Level: ${result.predicted_stress_level}"
-                                                    viewModel.predictionError = null
-                                                }
-                                            } else {
-                                                viewModel.predictionError = "Failed to get prediction: ${response.code()} - ${response.message()}"
-                                                viewModel.predictionResult = null
-                                                // Log the error response body if available
-                                                response.errorBody()?.string()?.let { errorBody ->
-                                                    Log.e("API Error", "Error body: $errorBody")
-                                                }
-                                            }
-                                        }
-
-                                        override fun onFailure(call: Call<StressPredictionResponse>, t: Throwable) {
-                                            viewModel.isLoading = false
-                                            viewModel.predictionError = "Error: ${t.message}"
-                                            viewModel.predictionResult = null
-                                            Log.e("API Error", "Network error", t)
-                                        }
-                                    })
-                                } catch (e: NumberFormatException) {
-                                    viewModel.isLoading = false
-                                    viewModel.predictionError = "Invalid number format in input fields"
-                                    viewModel.predictionResult = null
-                                    Log.e("API Error", "Number format error", e)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            ),
-                            enabled = !viewModel.isLoading
+                        // Scrollable content
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(scrollState)
+                                .padding(horizontal = 24.dp),
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            if (viewModel.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            } else {
-                                Text(
-                                    text = "Predict Stress Level",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                            Spacer(modifier = Modifier.height(0.dp))
+                            // Sleep Duration
+                            InputCard(
+                                title = "Sleep Duration",
+                                value = editableSleepDuration,
+                                onValueChange = {
+                                    if (isEditMode) {
+                                        isManuallyEditing = true
+                                        editableSleepDuration = it
+                                        onUserDataChange(userData.copy(sleepDuration = it))
+                                        sleepDurationError = it.isEmpty()
+                                    }
+                                },
+                                placeholder = "...",
+                                isEditMode = isEditMode,
+                                helperText = "hours (e.g. 7.2)",
+                                valueFontSize = 24.sp,
+                                valueFontWeight = FontWeight.Bold,
+                                isError = sleepDurationError
+                            )
 
-                        // Show prediction result
-                        if (viewModel.predictionResult != null) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            ) {
-                                Text(
-                                    text = viewModel.predictionResult!!,
-                                    modifier = Modifier.padding(16.dp),
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
 
-                        // Show prediction error
-                        if (viewModel.predictionError != null) {
+                            // Heart Rate
+                            InputCard(
+                                title = "Heart Rate",
+                                value = editableHeartRate,
+                                onValueChange = {
+                                    if (isEditMode) {
+                                        isManuallyEditing = true
+                                        editableHeartRate = it
+                                        onUserDataChange(userData.copy(heartRate = it))
+                                        heartRateError = it.isEmpty()
+                                    }
+                                },
+                                placeholder = "...",
+                                isEditMode = isEditMode,
+                                helperText = "bpm",
+                                valueFontSize = 24.sp,
+                                valueFontWeight = FontWeight.Bold,
+                                isError = heartRateError
+                            )
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                )
-                            ) {
-                                Text(
-                                    text = viewModel.predictionError!!,
-                                    modifier = Modifier.padding(16.dp),
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
 
-                        // Show sync error
-                        if (error != null) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                )
+                            // Daily Steps
+                            InputCard(
+                                title = "Daily Steps",
+                                value = editableDailySteps,
+                                onValueChange = {
+                                    if (isEditMode) {
+                                        isManuallyEditing = true
+                                        editableDailySteps = it
+                                        onUserDataChange(userData.copy(dailySteps = it))
+                                        dailyStepsError = it.isEmpty()
+                                    }
+                                },
+                                placeholder = "...",
+                                isEditMode = isEditMode,
+                                helperText = "steps",
+                                valueFontSize = 24.sp,
+                                valueFontWeight = FontWeight.Bold,
+                                isError = dailyStepsError
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // BMI Category Dropdown Card
+                            DropdownCard(
+                                title = "BMI Category",
+                                value = userData.bmiCategory.ifEmpty { "Normal" },
+                                options = bmiCategories,
+                                expanded = bmiExpanded,
+                                onExpandedChange = { if (isEditMode) bmiExpanded = it },
+                                onOptionSelected = { option ->
+                                    if (isEditMode) {
+                                        onUserDataChange(userData.copy(bmiCategory = option))
+                                        bmiExpanded = false
+                                    }
+                                },
+                                isEditMode = isEditMode
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Gender Dropdown Card
+                            DropdownCard(
+                                title = "Gender",
+                                value = userData.gender.ifEmpty { "Select Gender" },
+                                options = genderOptions,
+                                expanded = genderExpanded,
+                                onExpandedChange = { if (isEditMode) genderExpanded = it },
+                                onOptionSelected = { option ->
+                                    if (isEditMode) {
+                                        onUserDataChange(userData.copy(gender = option))
+                                        genderExpanded = false
+                                    }
+                                },
+                                isEditMode = isEditMode
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Age Input Card
+                            InputCard(
+                                title = "Age",
+                                value = userData.age,
+                                onValueChange = {
+                                    if (isEditMode) {
+                                        onUserDataChange(userData.copy(age = it))
+                                        ageError = it.isEmpty()
+                                    }
+                                },
+                                placeholder = "...",
+                                isEditMode = isEditMode,
+                                isError = ageError
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Sleep Quality Input Card
+                            InputCard(
+                                title = "Sleep Quality",
+                                value = userData.sleepQuality,
+                                onValueChange = {
+                                    if (isEditMode) {
+                                        onUserDataChange(userData.copy(sleepQuality = it))
+                                        sleepQualityError = it.isEmpty()
+                                    }
+                                },
+                                placeholder = "...",
+                                isEditMode = isEditMode,
+                                helperText = "Rate 1-10",
+                                isError = sleepQualityError
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Sleep Disorder Dropdown Card
+                            DropdownCard(
+                                title = "Sleep Disorder",
+                                value = userData.sleepDisorder.ifEmpty { "Nothing" },
+                                options = sleepDisorderOptions,
+                                expanded = sleepDisorderExpanded,
+                                onExpandedChange = { if (isEditMode) sleepDisorderExpanded = it },
+                                onOptionSelected = { option ->
+                                    if (isEditMode) {
+                                        onUserDataChange(userData.copy(sleepDisorder = option))
+                                        sleepDisorderExpanded = false
+                                    }
+                                },
+                                isEditMode = isEditMode
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Prediction Button
+                            Button(
+                                onClick = {
+                                    // Validate all required fields
+                                    sleepDurationError = editableSleepDuration.isEmpty()
+                                    heartRateError = editableHeartRate.isEmpty()
+                                    dailyStepsError = editableDailySteps.isEmpty()
+                                    genderError = userData.gender.isEmpty()
+                                    ageError = userData.age.isEmpty()
+                                    sleepQualityError = userData.sleepQuality.isEmpty()
+                                    bmiCategoryError = userData.bmiCategory.isEmpty()
+                                    sleepDisorderError = userData.sleepDisorder.isEmpty()
+
+                                    Log.d("PredictDebug", "gender='${userData.gender}', age='${userData.age}', sleepDuration='${editableSleepDuration}', sleepQuality='${userData.sleepQuality}', bmiCategory='${userData.bmiCategory}', heartRate='${editableHeartRate}', dailySteps='${editableDailySteps}', sleepDisorder='${userData.sleepDisorder}'")
+                                    Log.d("PredictDebug", "genderError=$genderError, ageError=$ageError, sleepDurationError=$sleepDurationError, sleepQualityError=$sleepQualityError, bmiCategoryError=$bmiCategoryError, heartRateError=$heartRateError, dailyStepsError=$dailyStepsError, sleepDisorderError=$sleepDisorderError")
+
+                                    // Validasi khusus
+                                    var crossCheckError = false
+                                    // Sleep Quality 1-10
+                                    val sleepQualityInt = userData.sleepQuality.toIntOrNull()
+                                    if (!sleepQualityError && (sleepQualityInt == null || sleepQualityInt < 1 || sleepQualityInt > 10)) {
+                                        sleepQualityError = true
+                                        crossCheckError = true
+                                    }
+                                    // Sleep Duration <= 24
+                                    val sleepDurationDouble = editableSleepDuration.toDoubleOrNull()
+                                    if (!sleepDurationError && (sleepDurationDouble == null || sleepDurationDouble > 24.0)) {
+                                        sleepDurationError = true
+                                        crossCheckError = true
+                                    }
+                                    // Age 3-100
+                                    val ageInt = userData.age.toIntOrNull()
+                                    if (!ageError && (ageInt == null || ageInt < 3 || ageInt > 100)) {
+                                        ageError = true
+                                        crossCheckError = true
+                                    }
+
+                                    if (genderError || ageError || sleepDurationError || sleepQualityError || bmiCategoryError || heartRateError || dailyStepsError || sleepDisorderError) {
+                                        viewModel.predictionError = if (crossCheckError) "Crosscheck your input" else "Please fill in all required fields"
+                                        viewModel.predictionResult = null
+                                        return@Button
+                                    }
+
+                                    try {
+                                        // Create the request using current values
+                                        val inputData = StressPredictionRequest(
+                                            Gender = userData.gender,
+                                            Age = userData.age.toInt(),
+                                            Sleep_Duration = editableSleepDuration.toDouble(),
+                                            Quality_of_Sleep = userData.sleepQuality.toInt(),
+                                            BMI_Category = userData.bmiCategory,
+                                            Heart_Rate = editableHeartRate.toInt(),
+                                            Daily_Steps = editableDailySteps.toInt(),
+                                            Sleep_Disorder = userData.sleepDisorder
+                                        )
+
+                                        viewModel.isLoading = true
+                                        viewModel.predictionError = null
+
+                                        // Make API call
+                                        ApiClient.api.predictStress(inputData)
+                                            .enqueue(object : Callback<StressPredictionResponse> {
+                                                override fun onResponse(
+                                                    call: Call<StressPredictionResponse>,
+                                                    response: Response<StressPredictionResponse>
+                                                ) {
+                                                    viewModel.isLoading = false
+                                                    if (response.isSuccessful) {
+                                                        response.body()?.let { result ->
+                                                            viewModel.predictionResult =
+                                                                "Stress Level: ${result.predicted_stress_level}"
+                                                            viewModel.predictionError = null
+                                                        }
+                                                    } else {
+                                                        viewModel.predictionError =
+                                                            "Failed to get prediction: ${response.code()} - ${response.message()}"
+                                                        viewModel.predictionResult = null
+                                                        // Log the error response body if available
+                                                        response.errorBody()?.string()
+                                                            ?.let { errorBody ->
+                                                                Log.e(
+                                                                    "API Error",
+                                                                    "Error body: $errorBody"
+                                                                )
+                                                            }
+                                                    }
+                                                }
+
+                                                override fun onFailure(
+                                                    call: Call<StressPredictionResponse>,
+                                                    t: Throwable
+                                                ) {
+                                                    viewModel.isLoading = false
+                                                    viewModel.predictionError = "Error: ${t.message}"
+                                                    viewModel.predictionResult = null
+                                                    Log.e("API Error", "Network error", t)
+                                                }
+                                            })
+                                    } catch (e: NumberFormatException) {
+                                        viewModel.isLoading = false
+                                        viewModel.predictionError =
+                                            "Invalid number format in input fields"
+                                        viewModel.predictionResult = null
+                                        Log.e("API Error", "Number format error", e)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                ),
+                                enabled = !viewModel.isLoading
                             ) {
-                                Text(
-                                    text = error,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(16.dp),
-                                    textAlign = TextAlign.Center
-                                )
+                                if (viewModel.isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Predict Stress Level",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            // Show prediction result
+                            if (viewModel.predictionResult != null) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom=16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Text(
+                                        text = viewModel.predictionResult!!,
+                                        modifier = Modifier.padding(16.dp),
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            // Show prediction error
+                            if (viewModel.predictionError != null) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer
+                                    )
+                                ) {
+                                    Text(
+                                        text = viewModel.predictionError!!,
+                                        modifier = Modifier.padding(16.dp),
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+
+                            // Show sync error
+                            if (error != null) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer
+                                    )
+                                ) {
+                                    Text(
+                                        text = error,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.padding(16.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
                 }
+
                 Screen.Profile -> {
                     ProfileScreen(
                         userData = userData,
@@ -593,82 +680,6 @@ fun MainScreen(
     }
 }
 
-@Composable
-fun TwoColumnHealthCard(
-    title: String,
-    value: String,
-    unit: String,
-    onValueChange: (String) -> Unit,
-    hasData: Boolean = false,
-    isEditMode: Boolean = false
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left Column - Title
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 20.sp
-                )
-            }
-
-            // Right Column - Value and Unit (stacked vertically)
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        textAlign = TextAlign.End,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier.width(100.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent
-                    ),
-                    singleLine = true,
-                    enabled = isEditMode
-                )
-                if (unit.isNotEmpty()) {
-                    Text(
-                        text = unit,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DropdownCard(
@@ -711,7 +722,8 @@ fun DropdownCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+//                    modifier = Modifier.padding(end = 16.dp)
                 ) {
                     Text(
                         text = value,
@@ -749,13 +761,23 @@ fun InputCard(
     title: String,
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String,
-    isEditMode: Boolean = false
+    placeholder: String = "",
+    isEditMode: Boolean = false,
+    helperText: String? = null,
+    valueFontSize: TextUnit = 16.sp,
+    valueFontWeight: FontWeight = FontWeight.Normal,
+    isError: Boolean = false
 ) {
     var localValue by remember(value) { mutableStateOf(value) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = if (isError) MaterialTheme.colorScheme.error.copy(0.5f) else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -764,37 +786,63 @@ fun InputCard(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(top = 16.dp, start = 16.dp, bottom = 16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-
+            // Kolom kiri: title + helper text
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (helperText != null) {
+                    Text(
+                        text = helperText,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            // Input field di kanan
             OutlinedTextField(
                 value = localValue,
                 onValueChange = { newValue ->
                     localValue = newValue
                     onValueChange(newValue)
                 },
-                placeholder = { Text(placeholder) },
-                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text(
+                        text = placeholder,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                modifier = Modifier.width(100.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     textAlign = TextAlign.End,
-                    fontSize = 16.sp
+                    fontSize = valueFontSize,
+                    fontWeight = valueFontWeight
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    errorBorderColor = Color.Transparent
                 ),
                 singleLine = true,
-                enabled = isEditMode
+                enabled = isEditMode,
+                isError = isError
             )
         }
     }

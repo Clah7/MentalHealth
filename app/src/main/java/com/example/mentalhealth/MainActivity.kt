@@ -112,7 +112,7 @@ fun MainScreenContainer(
                     val updatedUserData = userData.copy(
                         sleepDuration = sleepDuration,
                         dailySteps = if (fetchedSteps > 0) fetchedSteps.toString() else userData.dailySteps,
-                        heartRate = if (fetchedHeartRate > 0) String.format("%.1f", fetchedHeartRate) else userData.heartRate
+                        heartRate = if (fetchedHeartRate > 0) fetchedHeartRate.toInt().toString() else userData.heartRate
                     )
                     
                     Log.d("MainScreen", "Updating user data: $updatedUserData")
@@ -175,7 +175,7 @@ fun MainScreenContainer(
                     val updatedUserData = userData.copy(
                         sleepDuration = sleepDuration,
                         dailySteps = if (fetchedSteps > 0) fetchedSteps.toString() else userData.dailySteps,
-                        heartRate = if (fetchedHeartRate > 0) String.format("%.1f", fetchedHeartRate) else userData.heartRate
+                        heartRate = if (fetchedHeartRate > 0) fetchedHeartRate.toInt().toString() else userData.heartRate
                     )
                     
                     Log.d("MainScreen", "Updating user data: $updatedUserData")

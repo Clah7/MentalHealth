@@ -189,7 +189,7 @@ fun ProfileScreen(
                 ProfileDataCard(
                     modifier = Modifier.weight(1f),
                     label = "",
-                    value = userData.age.ifEmpty { "18" },
+                    value = userData.age.ifEmpty { "-" },
                     unit = "years old",
                     onClick = {
                         editingField = "age"
@@ -207,7 +207,7 @@ fun ProfileScreen(
                 ProfileDataCard(
                     modifier = Modifier.weight(1f),
                     label = "",
-                    value = userData.height.ifEmpty { "167" },
+                    value = userData.height.ifEmpty { "-" },
                     unit = "cm",
                     onClick = {
                         editingField = "height"
@@ -218,7 +218,7 @@ fun ProfileScreen(
                 ProfileDataCard(
                     modifier = Modifier.weight(1f),
                     label = "",
-                    value = userData.weight.ifEmpty { "58" },
+                    value = userData.weight.ifEmpty { "-" },
                     unit = "kg",
                     onClick = {
                         editingField = "weight"
@@ -543,7 +543,7 @@ fun BMICategorySelectionDialog(
     onCategorySelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val categories = listOf("Normal", "Overweight")
+    val categories = listOf("Normal", "Overweight", "Obese")
 
     AlertDialog(
         onDismissRequest = onDismiss,
